@@ -5,6 +5,7 @@ services:
         build:
             context: .
             dockerfile: ./docker/catalogue/Dockerfile
+        platform: linux/amd64
         image: weaveworksdemos/catalogue
         hostname: catalogue
         restart: always
@@ -16,10 +17,11 @@ services:
         environment:
             - reschedule=on-node-failure
         ports:
-            - "8080:80"
+            - "8080:8080"
     catalogue-db:
         build:
             context: ./docker/catalogue-db/
+        platform: linux/amd64
         image: weaveworksdemos/catalogue-db
         hostname: catalogue-db
         restart: always
