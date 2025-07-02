@@ -89,6 +89,16 @@ func MakeHTTPHandler(ctx context.Context, e Endpoints, imagePath string, logger 
 		encodeHealthResponse,
 		append(options, httptransport.ServerBefore(opentracing.FromHTTPRequest(tracer, "GET /health", logger)))...,
 	))
+	r.Methods("POST").Path("/catalogue").Handler(httptransport.NewServer(
+		ctx,
+		circuitbreaker.Gobreaker(gobreaker.NewCircuitBreaker(gobreaker.Settings{
+			Name:    "Create",
+			Timeout: 30 * time.Second,
+		}))(e.CreateEndpoint),
+		decodeCreateRequest,
+		encodeCreateResponse,
+		append(options, httptransport.ServerBefore(opentracing.FromHTTPRequest(tracer, "POST /catalogue", logger)))...,
+	))
 	r.Handle("/metrics", promhttp.Handler())
 	return r
 }
@@ -178,6 +188,24 @@ func decodeHealthRequest(_ context.Context, r *http.Request) (interface{}, error
 
 func encodeHealthResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
 	return encodeResponse(ctx, w, response.(healthResponse))
+}
+
+func decodeCreateRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	var sock Sock
+	if err := json.NewDecoder(r.Body).Decode(&sock); err != nil {
+		return nil, err
+	}
+	return createRequest{Sock: sock}, nil
+}
+
+func encodeCreateResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
+	resp := response.(createResponse)
+	if resp.Err != nil {
+		encodeError(ctx, resp.Err, w)
+		return nil
+	}
+	w.WriteHeader(http.StatusCreated)
+	return encodeResponse(ctx, w, map[string]string{"result": "created"})
 }
 
 func encodeResponse(_ context.Context, w http.ResponseWriter, response interface{}) error {

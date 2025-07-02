@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/jmoiron/sqlx"
+	"github.com/pborman/uuid"
 )
 
 // Service is the catalogue service, providing read operations on a saleable
@@ -20,6 +21,7 @@ type Service interface {
 	Get(id string) (Sock, error)                                             // GET /catalogue/{id}
 	Tags() ([]string, error)                                                 // GET /tags
 	Health() []Health                                                        // GET /health
+	Create(sock Sock) error                                                  // POST /catalogue
 }
 
 // Middleware decorates a Service.
@@ -223,4 +225,46 @@ func contains(s []string, e string) bool {
 		}
 	}
 	return false
+}
+
+func (s *catalogueService) Create(sock Sock) error {
+	if sock.ID == "" {
+		sock.ID = uuid.NewUUID().String()
+	}
+	// Insert into sock table
+	_, err := s.db.Exec(
+		"INSERT INTO sock (sock_id, name, description, price, count, image_url_1, image_url_2) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		sock.ID, sock.Name, sock.Description, sock.Price, sock.Count,
+		sock.ImageURL[0], sock.ImageURL[1],
+	)
+	if err != nil {
+		s.logger.Log("database error", err)
+		return ErrDBConnection
+	}
+	// Insert tags if they don't exist, and into sock_tag
+	for _, tag := range sock.Tags {
+		var tagID int
+		err = s.db.Get(&tagID, "SELECT tag_id FROM tag WHERE name = ?", tag)
+		if err != nil {
+			// Tag does not exist, insert it
+			res, err2 := s.db.Exec("INSERT INTO tag (name) VALUES (?)", tag)
+			if err2 != nil {
+				s.logger.Log("database error", err2)
+				return ErrDBConnection
+			}
+			id, err2 := res.LastInsertId()
+			if err2 != nil {
+				s.logger.Log("database error", err2)
+				return ErrDBConnection
+			}
+			tagID = int(id)
+		}
+		// Insert into sock_tag
+		_, err = s.db.Exec("INSERT INTO sock_tag (sock_id, tag_id) VALUES (?, ?)", sock.ID, tagID)
+		if err != nil {
+			s.logger.Log("database error", err)
+			return ErrDBConnection
+		}
+	}
+	return nil
 }

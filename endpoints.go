@@ -18,6 +18,7 @@ type Endpoints struct {
 	GetEndpoint    endpoint.Endpoint
 	TagsEndpoint   endpoint.Endpoint
 	HealthEndpoint endpoint.Endpoint
+	CreateEndpoint endpoint.Endpoint // POST /catalogue
 }
 
 // MakeEndpoints returns an Endpoints structure, where each endpoint is
@@ -29,6 +30,7 @@ func MakeEndpoints(s Service, tracer stdopentracing.Tracer) Endpoints {
 		GetEndpoint:    opentracing.TraceServer(tracer, "GET /catalogue/{id}")(MakeGetEndpoint(s)),
 		TagsEndpoint:   opentracing.TraceServer(tracer, "GET /tags")(MakeTagsEndpoint(s)),
 		HealthEndpoint: opentracing.TraceServer(tracer, "GET /health")(MakeHealthEndpoint(s)),
+		CreateEndpoint: opentracing.TraceServer(tracer, "POST /catalogue")(MakeCreateEndpoint(s)),
 	}
 }
 
@@ -72,6 +74,14 @@ func MakeHealthEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		health := s.Health()
 		return healthResponse{Health: health}, nil
+	}
+}
+
+func MakeCreateEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		req := request.(createRequest)
+		err = s.Create(req.Sock)
+		return createResponse{Err: err}, err
 	}
 }
 
@@ -120,4 +130,12 @@ type healthRequest struct {
 
 type healthResponse struct {
 	Health []Health `json:"health"`
+}
+
+type createRequest struct {
+	Sock Sock `json:"sock"`
+}
+
+type createResponse struct {
+	Err error `json:"err"`
 }

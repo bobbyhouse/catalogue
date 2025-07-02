@@ -86,3 +86,16 @@ func (mw loggingMiddleware) Health() (health []Health) {
 	}(time.Now())
 	return mw.next.Health()
 }
+
+func (mw loggingMiddleware) Create(sock Sock) (err error) {
+	defer func(begin time.Time) {
+		mw.logger.Log(
+			"method", "Create",
+			"id", sock.ID,
+			"name", sock.Name,
+			"err", err,
+			"took", time.Since(begin),
+		)
+	}(time.Now())
+	return mw.next.Create(sock)
+}

@@ -39,6 +39,28 @@
 			     }
 			 }
 		     }
+		 },
+		 "post": {
+		     "description": "Add a new item to the catalogue",
+		     "operationId": "AddCatalogueItem",
+		     "consumes": ["application/json;charset=UTF-8"],
+		     "parameters": [
+			 {
+			     "in": "body",
+			     "name": "body",
+			     "description": "Catalogue item to add",
+			     "required": true,
+			     "schema": { "$ref": "#/definitions/Listresponse" }
+			 }
+		     ],
+		     "responses": {
+			 "201": {
+			     "description": "Created"
+			 },
+			 "400": {
+			     "description": "Invalid input"
+			 }
+		     }
 		 }
 	     }
 	 },
